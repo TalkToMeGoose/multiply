@@ -1,0 +1,11 @@
+item_id,item,quantity,unit,price_status,unit_price_low_eur,unit_price_high_eur,line_total_low_eur,line_total_high_eur,supplier,source_url,checked_date,notes
+MCU,Pico H RPI-PICO-H,1,each,verified_listing,5.50,5.50,5.50,5.50,BerryBase,https://www.berrybase.de/raspberry-pi-pico-rp2040-mikrocontroller-board-mit-headern,2026-10-08,Headers fitted; available on page; VAT included; shipping excluded
+LCD,Waveshare 17344 2-inch IPS SPI module,1,each,verified_listing,10.90,10.90,10.90,10.90,Welectron,https://www.welectron.com/Waveshare-17344-2inch-LCD-Module,2026-10-08,10+ available on page; VAT included; confirm included 8-wire cable ends
+SW,Normally-open 6x6x4.3 mm KHT66PV43,100,each,verified_listing,0.13,0.13,13.00,13.00,BerryBase,https://www.berrybase.de/kurzhubtaster-vertikale-printmontage-6x6mm-h-4-3mm,2026-10-08,81 installed and 19 spare; 100+ available on page; no bulk discount assumed
+USB,Micro-USB data cable RPI-MUSB-1,1,each,verified_listing,1.80,1.80,1.80,1.80,BerryBase,https://www.berrybase.de/offizielles-raspberry-pi-micro-usb-kabel-rot-1-0m,2026-10-08,Can reuse an owned data cable
+WIRE,Insulated wire and leads and small interconnect pad board,1,allowance,estimate,3.00,5.00,3.00,5.00,Not selected,,2026-10-08,Hand-wired carrier build only; no switch perfboard included
+CONS,Solder and insulating sleeve,1,allowance,estimate,1.00,2.00,1.00,2.00,Not selected,,2026-10-08,Allocated usage; full packs may cost more
+PRINT,Teal and off-white filament used,1,allowance,estimate,6.00,10.00,6.00,10.00,Shared printer and filament,,2026-10-08,Estimated combined mass 0.25-0.40 kg; excludes full spools and access fees
+FIX,Screws and spacers and simple feet,1,allowance,estimate,2.00,3.00,2.00,3.00,Not selected,,2026-10-08,Actual dimensions depend on selected modules and enclosure
+LABEL,Adhesive labels and clear protective film,1,allowance,estimate,1.00,2.00,1.00,2.00,Shared sheets and film,,2026-10-08,Includes allocated ink or toner; full packs may cost more
+SHIP,Two consolidated domestic supplier shipments,1,allowance,estimate,8.00,12.00,8.00,12.00,BerryBase and Welectron,,2026-10-08,Not a checkout quote; later staged orders add postage

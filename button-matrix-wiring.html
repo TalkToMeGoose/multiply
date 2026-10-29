@@ -1,0 +1,175 @@
+<div id="multiply-matrix-explainer">
+  <style>
+    #multiply-matrix-explainer { color: var(--foreground); }
+    #multiply-matrix-explainer .matrix-stage { position: relative; width: 100%; }
+    #multiply-matrix-explainer .matrix-drawing { display: block; width: 100%; }
+    #multiply-matrix-explainer .matrix-buttons { position: absolute; inset: 0; pointer-events: none; }
+    #multiply-matrix-explainer .key-position { position: absolute; display: flex; justify-content: center; pointer-events: none; }
+    #multiply-matrix-explainer .key-position > button { pointer-events: auto; }
+    #multiply-matrix-explainer .matrix-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+    #multiply-matrix-explainer .legend-mark { display: inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 6px; }
+    #multiply-matrix-explainer .row-mark { background: var(--viz-series-1); }
+    #multiply-matrix-explainer .column-mark { background: var(--viz-series-2); }
+  </style>
+  <h3>Row-and-column wiring</h3>
+  <div class="text-small text-muted">Three rows and columns shown; the full board uses nine of each.</div>
+  <div class="matrix-stage">
+    <svg class="matrix-drawing" role="img" aria-label="Nine switches connect horizontal row wires to vertical column wires only when pressed."></svg>
+    <div class="matrix-buttons" role="group" aria-label="Select a switch to trace its connection"></div>
+  </div>
+  <div class="matrix-legend text-small">
+    <span><span class="legend-mark row-mark" aria-hidden="true"></span>Selected row</span>
+    <span><span class="legend-mark column-mark" aria-hidden="true"></span>Connected column</span>
+    <span>● Solder joint · crossings insulated</span>
+  </div>
+  <div class="matrix-state" aria-live="polite"></div>
+  <script>
+    (() => {
+      const root = document.getElementById('multiply-matrix-explainer');
+      const stage = root.querySelector('.matrix-stage');
+      const svg = root.querySelector('.matrix-drawing');
+      const buttonsLayer = root.querySelector('.matrix-buttons');
+      const status = root.querySelector('.matrix-state');
+      const ns = 'http://www.w3.org/2000/svg';
+      const rowColor = 'var(--viz-series-1)';
+      const columnColor = 'var(--viz-series-2)';
+      const neutral = 'var(--border)';
+      const ink = 'var(--foreground)';
+      const buttons = [];
+      let selected = [1, 2];
+
+      function validPair(value) {
+        return Array.isArray(value) && value.length === 2 &&
+          value.every(v => Number.isInteger(v) && v >= 0 && v < 3);
+      }
+
+      function applySaved(value) {
+        if (value && Object.prototype.hasOwnProperty.call(value, 'matrixSwitch')) {
+          selected = validPair(value.matrixSwitch) ? value.matrixSwitch : null;
+        }
+      }
+      applySaved(window.openai?.widgetState?.privateContent);
+
+      function element(tag, attributes, parent = svg) {
+        const node = document.createElementNS(ns, tag);
+        Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)));
+        parent.appendChild(node);
+        return node;
+      }
+
+      function line(x1, y1, x2, y2, color, width = 1.5) {
+        return element('line', { x1, y1, x2, y2, stroke: color, 'stroke-width': width });
+      }
+
+      function dot(x, y, color) {
+        element('circle', { cx: x, cy: y, r: 3.2, fill: color });
+      }
+
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const wrap = document.createElement('div');
+          wrap.className = 'key-position';
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn';
+          button.textContent = `${r + 1}×${c + 1}`;
+          button.setAttribute('aria-label', `Switch ${r + 1} times ${c + 1}; row ${r + 1}, column ${c + 1}`);
+          button.addEventListener('click', () => {
+            selected = selected && selected[0] === r && selected[1] === c ? null : [r, c];
+            draw();
+            if (window.openai?.setWidgetState) {
+              Promise.resolve(window.openai.setWidgetState({
+                modelContent: { selectedSwitch: selected ? { row: selected[0] + 1, column: selected[1] + 1 } : null },
+                privateContent: { matrixSwitch: selected }
+              })).catch(() => {});
+            }
+          });
+          wrap.appendChild(button);
+          buttonsLayer.appendChild(wrap);
+          buttons.push({ wrap, button, r, c });
+        }
+      }
+
+      function draw() {
+        const width = Math.max(1, stage.getBoundingClientRect().width);
+        const height = 360;
+        const left = 58;
+        const right = 16;
+        const cell = (width - left - right) / 3;
+        const x = c => left + cell * (c + 0.5);
+        const busX = c => left + cell * (c + 1) - 7;
+        const switchY = r => 94 + r * 94;
+        const busY = r => switchY(r) + 31;
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        svg.setAttribute('height', height);
+        svg.replaceChildren();
+        const title = element('title', {});
+        title.textContent = 'Switch matrix: three-row and three-column excerpt';
+        const desc = element('desc', {});
+        desc.textContent = 'Each switch has one contact on a horizontal row and another on a vertical column. Filled dots are soldered connections. Other wire crossings are insulated. Selecting a label closes that switch.';
+
+        for (let c = 0; c < 3; c++) {
+          const active = selected && selected[1] === c;
+          const color = active ? columnColor : neutral;
+          line(busX(c), 35, busX(c), height - 18, color, active ? 2.5 : 1.5);
+          const label = element('text', { x: busX(c), y: 22, 'text-anchor': 'middle', fill: ink });
+          label.textContent = `C${c + 1}`;
+        }
+
+        for (let r = 0; r < 3; r++) {
+          const active = selected && selected[0] === r;
+          const color = active ? rowColor : neutral;
+          const y = busY(r);
+          const end = x(2) - 17;
+          let start = 38;
+          for (let c = 0; c < 3; c++) {
+            const cross = busX(c);
+            if (cross + 6 < end) {
+              line(start, y, cross - 6, y, color, active ? 2.5 : 1.5);
+              const d = `M ${cross - 6} ${y} Q ${cross} ${y - 11} ${cross + 6} ${y}`;
+              element('path', { d, fill: 'none', stroke: 'var(--background)', 'stroke-width': 7 });
+              element('path', { d, fill: 'none', stroke: color, 'stroke-width': active ? 2.5 : 1.5 });
+              start = cross + 6;
+            }
+          }
+          line(start, y, end, y, color, active ? 2.5 : 1.5);
+          const label = element('text', { x: 8, y: y + 5, fill: ink });
+          label.textContent = `R${r + 1}`;
+
+          for (let c = 0; c < 3; c++) {
+            const sy = switchY(r);
+            const a = x(c) - 17;
+            const b = x(c) + 17;
+            const columnActive = selected && selected[1] === c;
+            const columnStroke = columnActive ? columnColor : neutral;
+            const closed = selected && selected[0] === r && selected[1] === c;
+            line(a, sy, a, y, color, active ? 2.5 : 1.5);
+            line(b, sy, busX(c), sy, columnStroke, columnActive ? 2.5 : 1.5);
+            dot(a, y, color);
+            dot(busX(c), sy, columnStroke);
+            element('circle', { cx: a, cy: sy, r: 3, fill: 'var(--background)', stroke: ink, 'stroke-width': 1.5 });
+            element('circle', { cx: b, cy: sy, r: 3, fill: 'var(--background)', stroke: ink, 'stroke-width': 1.5 });
+            line(a + 3, sy, b - 3, closed ? sy : sy - 15, closed ? rowColor : ink, closed ? 2.5 : 1.5);
+          }
+        }
+
+        buttons.forEach(({ wrap, button, r, c }) => {
+          wrap.style.left = `${left + c * cell}px`;
+          wrap.style.top = `${switchY(r) - 60}px`;
+          wrap.style.width = `${cell}px`;
+          button.setAttribute('aria-pressed', String(Boolean(selected && selected[0] === r && selected[1] === c)));
+        });
+        status.textContent = selected
+          ? `${selected[0] + 1}×${selected[1] + 1} pressed: row ${selected[0] + 1} connects to column ${selected[1] + 1}.`
+          : 'No button pressed: rows and columns remain separate.';
+      }
+
+      draw();
+      new ResizeObserver(draw).observe(stage);
+      window.addEventListener('openai:set_globals', event => {
+        const saved = event.detail?.globals?.widgetState;
+        if (saved) { applySaved(saved.privateContent); draw(); }
+      });
+    })();
+  </script>
+</div>

@@ -1,0 +1,207 @@
+<div id="multiply-assembly-sketch">
+  <style>
+    #multiply-assembly-sketch { color:var(--foreground); }
+    #multiply-assembly-sketch .assembly-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding-right:90px; margin-bottom:12px; }
+    #multiply-assembly-sketch .assembly-layout { display:grid; grid-template-columns:minmax(0,1fr) 205px; align-items:center; gap:18px; }
+    #multiply-assembly-sketch .assembly-drawing { min-width:0; }
+    #multiply-assembly-sketch svg { display:block; width:100%; overflow:visible; }
+    #multiply-assembly-sketch .assembly-parts { display:grid; gap:18px; }
+    #multiply-assembly-sketch .assembly-part { display:grid; grid-template-columns:24px minmax(0,1fr); gap:8px; }
+    #multiply-assembly-sketch .assembly-number { color:var(--foreground); }
+    #multiply-assembly-sketch .assembly-note { margin-top:12px; }
+    #multiply-assembly-sketch .assembly-label { fill:var(--foreground); font:500 12px sans-serif; }
+    #multiply-assembly-sketch .assembly-guide { stroke:var(--border); fill:none; stroke-width:1; }
+    #multiply-assembly-sketch .device { --case:#218c88; --case-edge:#116b69; --case-light:#47aaa3; --cap:#f5f1df; --cap-edge:#d4ceb9; --ink:#253a3b; --pcb:#27734d; --pcb-edge:#175338; --metal:#bdc7c7; --switch:#333b3c; --screen:#142327; --blue-number:#66baff; --orange-number:#ffaf62; --display-board:#246f9b; }
+    @media(max-width:550px) {
+      #multiply-assembly-sketch .assembly-layout { grid-template-columns:minmax(0,1fr); gap:8px; }
+      #multiply-assembly-sketch .assembly-parts { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 12px; }
+      #multiply-assembly-sketch .assembly-toolbar { padding-right:0; padding-top:6px; }
+    }
+  </style>
+  <div class="assembly-toolbar">
+    <label class="form-label" for="multiply-assembly-view">View</label>
+    <select class="form-select" id="multiply-assembly-view">
+      <option value="exploded">Exploded assembly</option>
+      <option value="inside">Inside, from above</option>
+      <option value="finished">Finished board</option>
+    </select>
+  </div>
+  <div class="assembly-layout">
+    <div class="assembly-drawing"><svg role="img" aria-labelledby="multiply-assembly-title multiply-assembly-desc"><title id="multiply-assembly-title">Multiplication board assembly sketch</title><desc id="multiply-assembly-desc"></desc></svg></div>
+    <div class="assembly-parts">
+      <div class="assembly-part"><span class="assembly-number">①</span><div>81 printed keycaps<div class="text-small text-muted">15 mm faces · 18 mm pitch</div></div></div>
+      <div class="assembly-part"><span class="assembly-number">②</span><div>Teal top / guide plate<div class="text-small text-muted">Guides caps; retains their flanges</div></div></div>
+      <div class="assembly-part"><span class="assembly-number">③</span><div>Display + Pico H<div class="text-small text-muted">2.4″ module shown · USB at rear</div></div></div>
+      <div class="assembly-part"><span class="assembly-number">④</span><div>Custom matrix PCB<div class="text-small text-muted">81 tactile switches · socketed Pico · display cable</div></div></div>
+      <div class="assembly-part"><span class="assembly-number">⑤</span><div>Printed bottom shell<div class="text-small text-muted">PCB supports, screw pillars, USB opening</div></div></div>
+    </div>
+  </div>
+  <div class="assembly-note text-small text-muted" aria-live="polite" id="multiply-assembly-status"></div>
+  <script>
+  (() => {
+    const root = document.getElementById('multiply-assembly-sketch');
+    const svg = root.querySelector('svg');
+    const selector = root.querySelector('select');
+    const status = root.querySelector('#multiply-assembly-status');
+    const NS = 'http://www.w3.org/2000/svg';
+    const views = ['exploded','inside','finished'];
+    let view = 'exploded';
+    function savedView(state) {
+      const candidate = state?.modelContent?.view;
+      if (views.includes(candidate)) { view = candidate; selector.value = view; }
+    }
+    savedView(window.openai?.widgetState);
+    const make = (name, attrs={}, parent=svg, text) => {
+      const e = document.createElementNS(NS,name);
+      Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+      if (text !== undefined) e.textContent = text;
+      parent.appendChild(e); return e;
+    };
+    const descriptions = {
+      exploded:'Exploded view: caps above a guide plate; display and Pico in the rear band; 81 switches on one large PCB; bottom shell and support pillars below. Layer spacing is exaggerated.',
+      inside:'Top cover removed: the 2.4 inch display sits in the rear centre, with a Pico beside it and USB facing the rear edge. A short display cable connects to the PCB. The 9 by 9 switch grid occupies the rest of the board.',
+      finished:'Top view of a teal rounded enclosure, one display above an off-white 9 by 9 labelled key grid. Estimated case size 180 by 230 by 26 millimetres.'
+    };
+    function draw() {
+      const w = Math.max(260,root.querySelector('.assembly-drawing').getBoundingClientRect().width);
+      const exploded = view === 'exploded';
+      const k = exploded ? Math.min((w-28)/254,1.45) : Math.min((w-68)/180,2.05);
+      const h = exploded ? 350*k+20 : 230*k+62;
+      svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+      svg.style.height = `${h}px`;
+      svg.replaceChildren();
+      make('title',{id:'multiply-assembly-title'},svg,'Multiplication board assembly sketch');
+      make('desc',{id:'multiply-assembly-desc'},svg,descriptions[view]);
+      const product = make('g',{class:'device'});
+      const p = (x,y,z=0) => exploded
+        ? [w/2+(x-90)*k+(y-115)*.32*k,h-60*k+(y-115)*.24*k-(x-90)*.08*k-z*k]
+        : [(w-180*k)/2+x*k,24+y*k];
+      const points = coords => coords.map(v=>p(...v).join(',')).join(' ');
+      function poly(coords,fill,stroke='none',parent=product,extra={}) {
+        return make('polygon',{points:points(coords),fill,stroke,'stroke-width':.7,...extra},parent);
+      }
+      function plate(x,y,b,d,z,fill,edge,thickness=1.6) {
+        if (exploded && thickness) {
+          poly([[x,y+d,z],[x+b,y+d,z],[x+b,y+d,z-thickness],[x,y+d,z-thickness]],edge);
+          poly([[x+b,y,z],[x+b,y+d,z],[x+b,y+d,z-thickness],[x+b,y,z-thickness]],edge);
+        }
+        if (exploded) return poly([[x,y,z],[x+b,y,z],[x+b,y+d,z],[x,y+d,z]],fill);
+        const radius = b>175 ? 7 : b>=170 ? 3 : b>=14 && b<=17 ? 1.5 : .6;
+        return make('rect',{x:p(x,y)[0],y:p(x,y)[1],width:b*k,height:d*k,rx:radius*k,fill},product);
+      }
+      function dot(x,y,z,r,fill) {
+        const q=p(x,y,z);
+        return make('ellipse',{cx:q[0],cy:q[1],rx:r*k,ry:r*k*(exploded?.26:1),fill},product);
+      }
+      function textAt(x,y,z,text,size,fill,parent=product) {
+        const q=p(x,y,z);
+        return make('text',{x:q[0],y:q[1],'text-anchor':'middle','dominant-baseline':'middle',fill,'font-size':size*k,'font-family':'Arial,sans-serif','font-weight':400,...(exploded?{transform:`rotate(-4.57 ${q[0]} ${q[1]})`}:{})},parent,text);
+      }
+      function badge(x,y,z,n) {
+        const q=p(x,y,z);
+        make('circle',{cx:q[0],cy:q[1],r:10,fill:'var(--background)',stroke:'var(--border)'},svg);
+        make('text',{x:q[0],y:q[1]+4,'text-anchor':'middle',class:'assembly-label'},svg,n);
+      }
+      function equation(z) {
+        const factors=[['6',72,'var(--blue-number)'],['×',80.3,'#d9e3e2'],['7',88.6,'var(--orange-number)'],['=',97,'#d9e3e2'],['42',108,'var(--blue-number)']];
+        factors.forEach(([t,x,c])=>textAt(x,31,z,t,7,c));
+      }
+      const posts=[[10,13],[170,13],[10,57],[170,57],[10,145],[170,145],[10,219],[170,219]];
+      function base() {
+        plate(0,0,180,230,0,'var(--case)','var(--case-edge)',12);
+        plate(4,4,172,222,.2,'var(--case-edge)','var(--case-edge)',0);
+        posts.forEach(([x,y])=>{
+          if(exploded) { const a=p(x,y,0),b=p(x,y,10);make('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--case-light)','stroke-width':5*k},product); }
+          dot(x,y,10,3,'var(--case-light)'); dot(x,y,10.2,1,'var(--case-edge)');
+        });
+      }
+      function board(z) {
+        plate(5,5,170,220,z,'var(--pcb)','var(--pcb-edge)');
+        posts.forEach(([x,y])=>dot(x,y,z+.1,1.5,'var(--metal)'));
+        // Schematic traces show the row/column structure, not a routed PCB design.
+        for(let i=0;i<9;i++) {
+          poly([[18,69+i*18,z+.1],[162,69+i*18,z+.1]],'#80a884','#80a884',product,{'stroke-width':.5});
+          poly([[18+i*18,69,z+.1],[18+i*18,213,z+.1]],'#80a884','#80a884',product,{'stroke-width':.5});
+        }
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+          plate(15+c*18,66+r*18,6,6,z+2,'var(--metal)','var(--switch)',1.5);
+          dot(18+c*18,69+r*18,z+4.3,1.7,'var(--switch)');
+        }
+      }
+      function electronics(z) {
+        // Module envelopes are nominal; mounting holes and connector clearances remain to be measured.
+        [[58,13],[122,13],[58,49],[122,49]].forEach(([x,y])=>{
+          if(exploded) { const a=p(x,y,z-13),b=p(x,y,z);make('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--metal)','stroke-width':2*k},product); }
+        });
+        plate(54.75,9.35,70.5,43.3,z,'var(--display-board)','var(--pcb-edge)');
+        plate(63,10.5,54,40,z+.2,'var(--switch)','var(--switch)',0);
+        plate(65.52,12.64,48.96,36.72,z+.4,'var(--screen)','var(--screen)',0);
+        equation(z+.6);
+        // Socket strips beneath the Pico, with micro USB facing the case rear edge.
+        plate(138,5,4,49,z-5,'var(--switch)','var(--switch)',4);
+        plate(158,5,4,49,z-5,'var(--switch)','var(--switch)',4);
+        plate(139.5,3,21,51,z-2,'var(--pcb)','var(--pcb-edge)');
+        for(let i=0;i<20;i++) {dot(140.5,5+i*2.45,z-1.5,.6,'var(--metal)');dot(159.5,5+i*2.45,z-1.5,.6,'var(--metal)');}
+        plate(146,22,8,8,z-.5,'var(--switch)','var(--switch)',1);
+        plate(146,0,8,6,z+1,'var(--metal)','var(--switch)',3);
+        if (!exploded) textAt(150,42,z,'PICO',4,'#e8f0e6');
+        const cable=[p(57,37,z),p(43,40,z-5),p(43,55,z-12),p(62,57,z-12)];
+        make('polyline',{points:cable.map(q=>q.join(',')).join(' '),fill:'none',stroke:'var(--metal)','stroke-width':3*k,'stroke-linejoin':'round'},product);
+        plate(59,54,10,5,z-12,'var(--switch)','var(--switch)',2);
+      }
+      function lid(z) {
+        plate(0,0,180,230,z,'var(--case)','var(--case-edge)',3);
+        // Dark apertures in the exploded view represent through-openings.
+        plate(64.5,11.6,51,38.7,z+.1,'var(--case-edge)','var(--case-edge)',0);
+        if(view==='finished') {
+          plate(65.52,12.64,48.96,36.72,z+.2,'var(--screen)','var(--screen)',0);equation(z+.4);
+        }
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+          plate(10.2+c*18,61.2+r*18,15.6,15.6,z+.1,'var(--case-edge)','var(--case-edge)',0);
+        }
+      }
+      function caps(z) {
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) {
+          if(exploded) {
+            plate(17+c*18,68+r*18,2,2,z-5,'var(--cap-edge)','var(--cap-edge)',4);
+            plate(9.5+c*18,60.5+r*18,17,17,z-2,'var(--cap-edge)','var(--cap-edge)',.8);
+          }
+          plate(10.5+c*18,61.5+r*18,15,15,z,'var(--cap)','var(--cap-edge)',3);
+          // Face labels are engraved-scale product content, not diagram annotations.
+          textAt(18+c*18,69+r*18,z+.1,`${r+1}×${c+1}`,3.2,'var(--ink)');
+        }
+      }
+      if(exploded) {
+        // Alignment guides make clear that the separated layers share the same footprint.
+        [[0,0],[180,230]].forEach(([x,y])=>{const a=p(x,y,-10),b=p(x,y,265);make('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],class:'assembly-guide','stroke-dasharray':'3 5'},svg);});
+        base();board(85);electronics(103);lid(170);caps(255);
+        badge(-5,195,255,'1');badge(-5,195,170,'2');badge(130,24,104,'3');badge(-5,195,85,'4');badge(-5,195,0,'5');
+      } else if(view==='inside') {
+        base();board(0);electronics(13);
+        badge(48,31,0,'3');badge(90,146,0,'4');badge(175,220,0,'5');
+        const q=p(150,-3);make('text',{x:q[0],y:q[1]-5,class:'assembly-label','text-anchor':'middle'},svg,'USB');
+      } else {
+        lid(0);caps(3);
+        const y=24+230*k+18,x0=p(0,0)[0],x1=p(180,0)[0];
+        make('line',{x1:x0,y1:y,x2:x1,y2:y,class:'assembly-guide'},svg);
+        [x0,x1].forEach(x=>make('line',{x1:x,y1:y-4,x2:x,y2:y+4,class:'assembly-guide'},svg));
+        make('text',{x:w/2,y:y+19,'text-anchor':'middle',class:'assembly-label'},svg,'≈ 180 mm wide × 230 mm long');
+      }
+      status.textContent = view==='exploded' ? 'Concept sketch · layer gaps exaggerated · supports and holes illustrative'
+        : view==='inside' ? 'Estimated PCB envelope: 170 × 220 mm · mounting positions still to verify'
+        : 'Provisional case: 180 × 230 × 26 mm · display choice still open';
+    }
+    selector.value = view;
+    selector.addEventListener('change',()=>{
+      view = selector.value; draw();
+      window.openai?.setWidgetState?.({modelContent:{view,display:'2.4 inch provisional',caseMm:[180,230,26]},privateContent:{}})?.catch(()=>{});
+    });
+    window.addEventListener('openai:set_globals',event=>{
+      const state=event.detail?.globals?.widgetState;
+      if(state) {savedView(state);draw();}
+    });
+    new ResizeObserver(draw).observe(root.querySelector('.assembly-drawing'));
+    draw();
+  })();
+  </script>
+</div>
